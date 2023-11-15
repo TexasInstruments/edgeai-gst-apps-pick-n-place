@@ -7,7 +7,7 @@ inputs:
         width: 1280
         height: 720
         framerate: 15
-        caminfo: /opt/edgeai-gst-apps/niryo_camera_info/niryo_HD_camera_info.yaml
+        caminfo: /opt/robot/jacinto-picknplace-demo/nodes/pick_n_place/pick_n_place_niryo/config/niryo_HD_camera_info.yaml
     input1:
         source: /opt/edgeai-test-data/videos/video_0000_h264.h264
         format: h264
@@ -30,7 +30,7 @@ models:
         model_path: /opt/model_zoo/TFL-OD-2010-ssd-mobV2-coco-mlperf-300x300
         viz_threshold: 0.6
     model2:
-        model_path: /opt/model_zoo/od-8200_onnxrt_mmdet_yolox_nano_416x416_barcode
+        model_path: /opt/model_zoo/ONR-OD-8200-yolox-nano-lite-mmdet-apriltag-416x416
         viz_threshold: 0.8
 outputs:
     output0:
