@@ -33,6 +33,11 @@ import numpy as np
 import copy
 import debug
 
+import yaml
+import rospy
+from sensor_msgs.msg import Image, CameraInfo
+from cv_bridge import CvBridge
+
 np.set_printoptions(threshold=np.inf, linewidth=np.inf)
 
 
@@ -92,6 +97,9 @@ class PostProcess:
             return PostProcessDetection(flow)
         elif flow.model.task_type == "segmentation":
             return PostProcessSegmentation(flow)
+
+    def stop(self):
+        return
 
 
 class PostProcessClassification(PostProcess):
@@ -162,6 +170,26 @@ class PostProcessDetection(PostProcess):
     def __init__(self, flow):
         super().__init__(flow)
 
+        rospy.init_node("Apriltag_detection_publisher", disable_signals=True)
+       
+        self.count = 0
+        self.pubfreq = 3
+        self.image_pub = rospy.Publisher("/camera/image_raw", Image, queue_size = 1)
+        self.caminfo_pub = rospy.Publisher("/camera/camera_info", CameraInfo, queue_size=1)
+        self.bridge = CvBridge()
+
+        self.camInfo = CameraInfo()
+
+        if flow.input.caminfo != "":
+            with open(flow.input.caminfo, "r") as f:
+                camInfo = yaml.safe_load(f)
+
+            self.camInfo.header.frame_id = "camera_frame"
+            self.camInfo.distortion_model = "plumb_bob"
+            self.camInfo.D = camInfo["distortion_coefficients"]["data"]
+            self.camInfo.K = camInfo["camera_matrix"]["data"]
+            self.camInfo.P = camInfo["projection_matrix"]["data"]
+
     def __call__(self, img, results):
         """
         Post process function for detection
@@ -199,10 +227,28 @@ class PostProcessDetection(PostProcess):
             bbox[..., (0, 2)] /= self.model.resize[0]
             bbox[..., (1, 3)] /= self.model.resize[1]
 
+        self.count += 1
+        if self.count == self.pubfreq:
+            # Publish frame
+            msg_img = self.bridge.cv2_to_imgmsg(img)
+            msg_img.header.stamp = rospy.Time.now()
+            msg_img.encoding = "rgb8"
+            self.image_pub.publish(msg_img)
+
+            # Publish camera info
+            self.camInfo.header.stamp = msg_img.header.stamp
+            self.camInfo.width = msg_img.width
+            self.camInfo.height = msg_img.height
+            self.caminfo_pub.publish(self.camInfo)
+
+            # reset count
+            self.count = 0
+
         for b in bbox:
             if b[5] > self.model.viz_threshold:
                 if type(self.model.label_offset) == dict:
-                    class_name = self.model.classnames[self.model.label_offset[int(b[4])]]
+                    #class_name = self.model.classnames[self.model.label_offset[int(b[4])]]
+                    class_name = "AprilTag"
                 else:
                     class_name = self.model.classnames[self.model.label_offset + int(b[4])]
                 img = self.overlay_bounding_box(img, b, class_name)
@@ -234,7 +280,7 @@ class PostProcessDetection(PostProcess):
         cv2.rectangle(
             frame,
             (int((box[2] + box[0]) / 2) - 5, int((box[3] + box[1]) / 2) + 5),
-            (int((box[2] + box[0]) / 2) + 160, int((box[3] + box[1]) / 2) - 15),
+            (int((box[2] + box[0]) / 2) + 70, int((box[3] + box[1]) / 2) - 15),
             box_color,
             -1,
         )
@@ -252,6 +298,9 @@ class PostProcessDetection(PostProcess):
             self.debug_str += str(box) + "\n"
 
         return frame
+
+    def stop(self):
+        rospy.signal_shutdown("Keyboard interruput: rospy shutdown")
 
 
 class PostProcessSegmentation(PostProcess):

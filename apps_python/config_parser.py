@@ -59,6 +59,11 @@ class Input:
             self.sen_id = input_config["sen-id"]
         else:
             self.sen_id = "imx219"
+        if "caminfo" in input_config:
+            self.caminfo = input_config["caminfo"]
+        else:
+            self.caminfo = "None"
+
         self.id = Input.count
         Input.count += 1
         self.split_count = 0

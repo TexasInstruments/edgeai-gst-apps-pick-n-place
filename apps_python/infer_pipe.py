@@ -83,6 +83,7 @@ class InferPipe:
         """
         Stop the pipeline
         """
+        self.post_proc.stop()
         self.stop_thread = True
 
     def wait_for_exit(self):
